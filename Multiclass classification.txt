@@ -1,0 +1,99 @@
+### Multiclass classification ###
+
+from google.colab import drive
+import pandas as pd
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.losses import SparseCategoricalCrossentropy
+
+
+### Allows files to be uploaded from Google Drive ###
+# drive.mount('/content/gdrive')
+
+### Import the training data ###
+df = pd.read_csv('/content/gdrive/MyDrive/MNIST/mnist_train.csv')
+
+### Seperate the data into image and label ###
+train_images = df.iloc[ :, 1: ] # Remove the first column which identifies the number
+train_labels = df.pop("label") # Isolates the first column only
+
+### Create a grayscale between 0 and 1 ###
+train_images = train_images / 255
+
+### Converts the dataframes to tensors for the ML model ###
+train_images = tf.convert_to_tensor(train_images)
+train_labels = tf.convert_to_tensor(train_labels)
+
+
+
+
+
+
+### ML multiclass classification model using adam optimiser ###
+model = Sequential( [ Dense( units = 25, activation = "relu" ),
+                      Dense( units = 15, activation = "relu" ), # Linear not Softmax to improve accuracy
+                      Dense( units = 10, activation = "linear" ) ] ) # Final layer = 10 units, 0-9
+
+model.compile( optimizer = "adam",  
+              loss = SparseCategoricalCrossentropy(from_logits=True),
+              metrics = ["accuracy"] ) # Shows the accuracy after each epoch, make sure no overfitting
+
+model.fit(train_images,train_labels, epochs = 5)
+
+
+
+
+### Import the test data ###
+df_test = pd.read_csv('/content/gdrive/MyDrive/MNIST/mnist_test.csv')
+
+### Seperate image and labels of trainng data ###
+test_images = df_test.iloc[ :, 1: ] # Remove the first column which identifies the number
+test_labels = df_test.pop("label") # Isolates the first column only
+
+### Create a grayscale between 0 and 1 ###
+test_images = test_images / 255
+
+### Converts the dataframes to tensors for the ML model ###
+test_images = tf.convert_to_tensor(test_images)
+test_labels = tf.convert_to_tensor(test_labels)
+
+
+
+
+### Convert logits to percentages ###
+probability_model = tf.keras.Sequential([model, tf.keras.layers.Softmax()])
+
+# ### Testing the model ###
+probability = probability_model.predict(test_images)
+
+### isolates the highest probability from each array as its element number ###
+results = np.zeros(len(probability))
+for i in range(len(probability)):
+  results[i] = np.argmax(probability[i])
+ 
+
+
+### Finds where the predicted and true values differ ###
+a = np.where( test_labels != results )[0]
+print("Predicted value: ", np.array(results)[a])
+print("True value: ", test_labels.numpy()[a])
+
+print("Accuracy: ", ( len(test_labels) - len(a) ) / len(test_labels) )
+
+### Plots the image for an incorrectly identified image ###
+plot_data_1D = test_images[a[0]]
+plot_data_2D = np.reshape(plot_data_1D.numpy() , (-1, 28))
+plt.imshow(plot_data_2D)
+plt.xlabel("X-coordinate", fontsize = 14)
+plt.ylabel("Y-coordinate", fontsize = 14)
+plt.figure()
+
+print("Probability for the image: ", probability[a[0]])
+
+plt.bar([0,1,2,3,4,5,6,7,8,9], probability[a[0]])
+plt.xlabel("Number", fontsize = 14)
+plt.ylabel("Probability", fontsize = 14)
+plt.figure()

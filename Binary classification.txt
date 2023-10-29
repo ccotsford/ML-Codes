@@ -1,0 +1,122 @@
+### Identifies either a 1 or 2 from an MNIST image ###
+
+from google.colab import drive
+import pandas as pd
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.losses import BinaryCrossentropy
+
+
+### Allows files to be uploaded from Google Drive ###
+# drive.mount('/content/gdrive')
+
+### Import the training data ###
+df = pd.read_csv('/content/gdrive/MyDrive/MNIST/mnist_train.csv')
+
+### Seperate only the data for a 1 ###
+ones = df[ df["label"] == 1 ]
+ones_images = ones.iloc[ :, 1: ] # Remove the first column which identifies the number
+ones_labels = ones.pop("label") # Isolates the first column only
+
+### Seperate only the data for a 2 ###
+twos = df[ df["label"] == 2 ]
+twos_images = twos.iloc[ :, 1: ] # Remove the first column which identifies the number
+twos_labels = twos.pop("label") # Isolates the first column only
+
+### Create a grayscale between 0 and 1 ###
+ones_images = ones_images / 255
+twos_images = twos_images / 255
+
+### Convert the outputs to either a 0 or 1 for binary classification ###
+ones_labels = np.array( np.zeros( len( ones_labels ) ) )
+twos_labels = np.array( np.ones( len( twos_labels ) ) )
+
+
+### Converts the dataframes to tensors for the ML model ###
+ones_images = tf.convert_to_tensor(ones_images)
+ones_labels = tf.convert_to_tensor(ones_labels)
+twos_images = tf.convert_to_tensor(twos_images)
+twos_labels = tf.convert_to_tensor(twos_labels)
+
+### Combine the 1 and 2 datasets into a single dataset for input and output
+inputs = tf.concat( [ones_images, twos_images], 0 )
+outputs = tf.concat( [ones_labels, twos_labels], 0 )
+
+
+
+
+### ML binary classification model using adam optimiser ###
+model = Sequential( [ Dense( units = 25, activation = "relu" ),
+                      Dense( units = 15, activation = "relu" ),
+                      Dense( units = 1, activation = "sigmoid" ) ] )
+model.compile( optimizer = "adam",  loss = BinaryCrossentropy() )
+model.fit(inputs,outputs, epochs = 20)
+
+
+
+
+### Import the test data ###
+df_test = pd.read_csv('/content/gdrive/MyDrive/MNIST/mnist_test.csv')
+
+### Seperate only the data for a 1 ###
+ones_test = df_test[ df_test["label"] == 1 ]
+ones_images_test = ones_test.iloc[ :, 1: ] # Remove the first column which identifies the number
+ones_labels_test = ones_test.pop("label") # Isolates the first column only
+
+### Seperate only the data for a 2 ###
+twos_test = df_test[ df_test["label"] == 2 ]
+twos_images_test = twos_test.iloc[ :, 1: ] # Remove the first column which identifies the number
+twos_labels_test = twos_test.pop("label") # Isolates the first column only
+
+### Create a grayscale between 0 and 1 ###
+ones_images_test = ones_images / 255
+twos_images_test = twos_images / 255
+
+### Convert the outputs to either a 0 or 1 for binary classification ###
+ones_labels_test = np.array( np.zeros( len( ones_labels_test ) ) )
+twos_labels_test = np.array( np.ones( len( twos_labels_test ) ) )
+
+### Converts the dataframes to tensors for the ML model ###
+ones_images_test = tf.convert_to_tensor(ones_images_test)
+ones_labels_test = tf.convert_to_tensor(ones_labels_test)
+twos_images_test = tf.convert_to_tensor(twos_images_test)
+twos_labels_test = tf.convert_to_tensor(twos_labels_test)
+
+### Combine the 1 and 2 datasets into a single dataset for input and output
+test_x = tf.concat( [ones_images_test, twos_images_test], 0 )
+test_y = tf.concat( [ones_labels_test, twos_labels_test], 0 )
+
+
+
+
+### Testing the model ###
+results = model.predict(test_x)
+
+
+
+
+### Round anything below a 50% to a 0 and above 50% to a 1
+results[ np.where(results < 0.5) ] = 0
+results[ np.where(results >= 0.5) ] = 1
+
+### Removes square brackets at each element so that can be compared to the test data ###
+results = results.tolist()
+results = [i[0] for i in results]
+
+### Finds where the predicted and true values differ ###
+a = np.where( test_y != results )[0]
+print("Predicted value: ", np.array(results)[a])
+print("True value: ", test_y.numpy()[a])
+
+print("Accuracy: ", ( len(test_y) - len(a) ) / len(test_y) )
+
+### Plots the image for an incorrectly identified image ###
+plot_data_1D = test_x[a[0]]
+plot_data_2D = np.reshape(plot_data_1D.numpy() , (-1, 28))
+plt.imshow(plot_data_2D)
+plt.xlabel("X-coordinate", fontsize = 14)
+plt.ylabel("Y-coordinate", fontsize = 14)
+plt.figure()
